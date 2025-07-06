@@ -1,0 +1,127 @@
+plugins {
+    id 'java-library'
+    id 'org.openapi.generator' version '7.14.0'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'maven-publish'
+}
+
+group = 'com.example.contractgenerator'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+ext {
+    springBootDependenciesVersion = '3.4.5'
+    springBootStarterVersion = '2.2.13.RELEASE'
+    springBootStarterWebVersion = '3.3.2'
+    springCloudStarterOpeanfeignVersion = '3.1.0'
+    swaggerVersion = '2.2.22'
+    jakartaValidationApiVersion = '3.1.0'
+}
+
+
+dependencies {
+    implementation platform("org.springframework.boot:spring-boot-dependencies:${springBootDependenciesVersion}")
+    implementation "org.springframework.boot:spring-boot-starter:${springBootStarterVersion}"
+    implementation "org.springframework.boot:spring-boot-starter-web:${springBootStarterWebVersion}"
+    implementation "io.swagger.core.v3:swagger-core:${swaggerVersion}"
+    implementation "io.swagger.core.v3:swagger-annotations:${swaggerVersion}"
+    implementation "jakarta.validation:jakarta.validation-api:${jakartaValidationApiVersion}"
+}
+
+openApiGenerate {
+    description = 'Generates OpenAPI client code from the OpenAPI specification.'
+    inputSpec = file("${projectDir}/yaml-specs/@typespec/openapi3/openapi.yaml").absolutePath
+    outputDir = file("${projectDir}/generated").absolutePath
+    generatorName = 'spring'
+    apiPackage = "${project.group}.products.api"
+    modelPackage = "${project.group}.products.model"
+    configOptions = [
+            library                    : 'spring-boot',
+            openApiNullable           : "false",
+            interfaceOnly             : "true",
+            useOptional               : "false",
+            useTags                   : "true",
+            useSpringBoot3            : "true",
+            skipDefaultInterface      : "true",
+            booleanGetterPrefix       : "is",
+            dateLibrary               : "custom",
+            java8                     : "true",
+            skipOperationExample      : "true",
+            generateModelDocumentation: "false",
+            generateApiDocumentation  : "false",
+            hideGenerationTimestamp   : "true",
+            useJakartaEe              : "true"
+    ]
+}
+
+tasks.register('cleanGeneratedClasses', Delete) {
+    description = 'Cleans up the generated folder'
+    group = 'build'
+    delete file("${projectDir}/generated").absolutePath
+}
+
+tasks.register('cleanGeneratedYaml', Delete) {
+    description = 'Cleans up the generated YAML specs folder'
+    group = 'build'
+    delete file("${projectDir}/yaml-specs").absolutePath
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['generated/src/main/java']
+        }
+        resources {
+            srcDirs = []
+        }
+    }
+}
+
+tasks.named('compileJava') {
+    dependsOn 'openApiGenerate'
+}
+
+tasks.register('buildProductApiJar', Jar) {
+    archiveBaseName.set('product-api')
+    archiveVersion.set(project.version)
+    from sourceSets.main.output
+}
+
+buildProductApiJar.dependsOn 'openApiGenerate'
+
+tasks.register('buildAll', Task) {
+    group = 'build'
+    description = 'Executes the complete build pipeline: clean, compile TypeSpec, generate OpenAPI, and build JAR'
+
+    dependsOn 'openApiGenerate', buildProductApiJar
+
+    buildProductApiJar.mustRunAfter tasks.named('openApiGenerate')
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            artifactId = 'product-api'
+
+            artifact buildProductApiJar
+
+            pom {
+                name = 'Product API'
+                description = 'Generated OpenAPI client for products service'
+            }
+        }
+    }
+
+    repositories {
+        mavenLocal()
+    }
+}

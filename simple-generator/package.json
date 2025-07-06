@@ -1,0 +1,10 @@
+{
+    "dependencies": {
+        "@typespec/compiler": "~0.63.0",
+        "@typespec/http": "^0.63.0",
+        "@typespec/json-schema": "^0.63.0",
+        "@typespec/openapi": "^0.63.0",
+        "@typespec/openapi3": "^0.63.0",
+        "swagger-typescript-api": "^13.1.1"
+    }
+}
